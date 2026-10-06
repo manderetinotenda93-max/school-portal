@@ -2,196 +2,306 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#14213d">
 <title>School Portal</title>
+
 <style>
-  :root { --ink:#14213d; --paper:#f5f8fc; --accent:#1f8a9e; --muted:#5b6784; --warn:#c2410c; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body { font-family: "Trebuchet MS", Verdana, sans-serif; background: var(--paper); color: var(--ink); }
-  .screen { display: none; height: 100dvh; }
-  .screen.active { display: flex; }
-  input, select { padding: 12px; font: inherit; border: 2px solid #cfd8e6; border-radius: 10px; width: 100%; background: #fff; }
-  button { padding: 12px 18px; font: inherit; font-weight: bold; background: var(--accent); color: #fff; border: 0; border-radius: 10px; cursor: pointer; }
+:root {
+  --ink: #14213d;
+  --paper: #f5f8fc;
+  --accent: #1f8a9e;
+  --muted: #5b6784;
+  --warn: #c2410c;
+  --border: #dde4ef;
+}
 
-  #join { align-items: center; justify-content: center; padding: 20px; background: var(--ink); }
-  .box { background: #fff; padding: 28px; border-radius: 20px; width: 100%; max-width: 400px; display: grid; gap: 12px; }
-  .box h1 { font-size: 1.6rem; }
-  .box p { color: var(--muted); font-size: .9rem; }
-  #err { color: var(--warn); font-size: .85rem; min-height: 1em; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-  #app { flex-direction: column; }
-  .top { background: var(--ink); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-  .top small { color: #cfe3ea; display: block; }
-  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e0a82e; margin-right: 6px; }
-  .dot.on { background: #3ecf8e; }
-  .top button { background: transparent; border: 1px solid #cfe3ea; padding: 6px 12px; }
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
 
-  #tabs { display: flex; overflow-x: auto; background: #fff; border-bottom: 1px solid #dde4ef; }
-  #tabs button { background: none; color: var(--muted); border-radius: 0; padding: 12px 16px; white-space: nowrap; border-bottom: 3px solid transparent; }
-  #tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
-  .badge { background: var(--warn); color: #fff; border-radius: 999px; font-size: .7rem; padding: 1px 7px; margin-left: 6px; }
+body {
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
 
-  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-  .msg { max-width: 82%; padding: 8px 12px; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(20,33,61,.15); word-wrap: break-word; }
-  .msg.mine { align-self: flex-end; background: var(--accent); color: #fff; }
-  .msg.notice { align-self: stretch; max-width: 100%; border-left: 5px solid var(--warn); border-radius: 8px; }
-  .who { font-size: .74rem; font-weight: bold; color: var(--accent); }
-  .msg.mine .who { color: #d9f1f5; }
-  .role { font-weight: normal; color: var(--muted); }
-  .msg.mine .role { color: #d9f1f5; }
-  .time { font-size: .68rem; opacity: .65; text-align: right; }
-  .sys { align-self: center; font-size: .78rem; color: var(--muted); text-align: center; }
-  #sendForm { display: flex; gap: 8px; padding: 10px; background: #fff; border-top: 1px solid #dde4ef; }
-</style>
-</head>
-<body>
+button,
+input,
+select {
+  font-family: inherit;
+}
 
-<div id="join" class="screen active">
-  <form class="box" id="joinForm">
-    <h1>School Portal</h1>
-    <p>Enter your school code to join your school's messages.</p>
-    <input id="nameIn" placeholder="Your name" maxlength="25" required>
-    <select id="roleIn">
-      <option value="student">Student</option>
-      <option value="parent">Parent</option>
-      <option value="teacher">Teacher</option>
-    </select>
-    <input id="staffIn" type="password" placeholder="Teacher code" style="display:none">
-    <input id="schoolIn" placeholder="School code (e.g. stmarys-2026)" maxlength="30" required>
-    <div id="err"></div>
-    <button type="submit">Enter portal</button>
-  </form>
-</div>
+.screen {
+  display: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 
-<div id="app" class="screen">
-  <div class="top">
-    <div><strong id="title"></strong><small><span class="dot" id="dot"></span><span id="status">Connecting...</span></small></div>
-    <button id="leave" type="button">Leave</button>
-  </div>
-  <div id="tabs"></div>
-  <div id="messages"></div>
-  <form id="sendForm">
-    <input id="textIn" placeholder="Type a message" autocomplete="off" maxlength="600">
-    <button type="submit">Send</button>
-  </form>
-</div>
+.screen.active {
+  display: flex;
+}
 
-<script>
-  // ===== SCHOOL SETTINGS: edit these =====
-  var TEACHER_CODE = "teach2026";   // teachers must type this to join as Teacher
-  var CHANNELS = [
-    { id: "announcements", name: "Announcements", post: ["teacher"], notice: true },
-    { id: "homework",      name: "Homework",      post: ["teacher"], notice: true },
-    { id: "class",         name: "Class chat",    post: ["teacher", "student", "parent"] },
-    { id: "staff",         name: "Staff room",    see: ["teacher"], post: ["teacher"] }
-  ];
-  // =======================================
+/* JOIN SCREEN */
 
-  var SERVER = "https://ntfy.sh/";
-  var me = "", role = "", school = "", current = "", sources = [];
-  var store = {}, unread = {}, seen = {};
-  var $ = function (id) { return document.getElementById(id); };
-  function show(id) {
-    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
-    $(id).classList.add("active");
+#join {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--ink);
+}
+
+.box {
+  background: #fff;
+  padding: 28px;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 400px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+}
+
+.box h1 {
+  font-size: 1.6rem;
+}
+
+.box p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+input,
+select {
+  padding: 12px;
+  font: inherit;
+  border: 2px solid #cfd8e6;
+  border-radius: 10px;
+  width: 100%;
+  background: #fff;
+  color: var(--ink);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+button {
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: bold;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+#err {
+  color: var(--warn);
+  font-size: 0.85rem;
+  min-height: 1em;
+}
+
+/* APP */
+
+#app {
+  flex-direction: column;
+  background: var(--paper);
+}
+
+/* TOP BAR */
+
+.top {
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.top strong {
+  display: block;
+  word-break: break-word;
+}
+
+.top small {
+  color: #cfe3ea;
+  display: block;
+  margin-top: 3px;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e0a82e;
+  margin-right: 6px;
+}
+
+.dot.on {
+  background: #3ecf8e;
+}
+
+.top button {
+  background: transparent;
+  border: 1px solid #cfe3ea;
+  padding: 6px 12px;
+}
+
+/* TABS */
+
+#tabs {
+  display: flex;
+  overflow-x: auto;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#tabs button {
+  background: none;
+  color: var(--muted);
+  border-radius: 0;
+  padding: 12px 16px;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+
+#tabs button.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.badge {
+  background: var(--warn);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+
+/* MESSAGES */
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.msg {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 33, 61, 0.15);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.msg.mine {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+}
+
+.msg.notice {
+  align-self: stretch;
+  max-width: 100%;
+  border-left: 5px solid var(--warn);
+  border-radius: 8px;
+}
+
+.who {
+  font-size: 0.74rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.msg.mine .who {
+  color: #d9f1f5;
+}
+
+.role {
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.msg.mine .role {
+  color: #d9f1f5;
+}
+
+.time {
+  font-size: 0.68rem;
+  opacity: 0.65;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.sys {
+  align-self: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px;
+}
+
+/* SEND BAR */
+
+#sendForm {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#sendForm input {
+  flex: 1;
+  min-width: 0;
+}
+
+#sendForm button {
+  flex-shrink: 0;
+}
+
+/* SMALL PHONES */
+
+@media (max-width: 420px) {
+  .box {
+    padding: 22px;
   }
-  function visible() { return CHANNELS.filter(function (c) { return !c.see || c.see.indexOf(role) > -1; }); }
-  function chan(id) { return CHANNELS.filter(function (c) { return c.id === id; })[0]; }
-  function topic(id) { return "schoolportal-" + school + "-" + id; }
 
-  function renderTabs() {
-    var t = $("tabs"); t.innerHTML = "";
-    visible().forEach(function (c) {
-      var b = document.createElement("button");
-      b.textContent = c.name;
-      if (c.id === current) b.className = "active";
-      if (unread[c.id]) { var s = document.createElement("span"); s.className = "badge"; s.textContent = unread[c.id]; b.appendChild(s); }
-      b.onclick = function () { openChannel(c.id); };
-      t.appendChild(b);
-    });
-  }
-  function bubble(m, c) {
-    var box = document.createElement("div");
-    box.className = "msg" + (c.notice ? " notice" : (m.n === me && m.r === role ? " mine" : ""));
-    var who = document.createElement("div"); who.className = "who"; who.textContent = m.n + " ";
-    var r = document.createElement("span"); r.className = "role"; r.textContent = "(" + m.r + ")"; who.appendChild(r);
-    var body = document.createElement("div"); body.textContent = m.t;
-    var tm = document.createElement("div"); tm.className = "time";
-    tm.textContent = new Date(m.ts).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-    box.appendChild(who); box.appendChild(body); box.appendChild(tm);
-    return box;
-  }
-  function renderMessages() {
-    var list = $("messages"); list.innerHTML = "";
-    var c = chan(current);
-    var arr = (store[current] || []).slice().sort(function (a, b) { return a.ts - b.ts; });
-    if (!arr.length) { var e = document.createElement("div"); e.className = "sys"; e.textContent = "No messages yet."; list.appendChild(e); }
-    arr.forEach(function (m) { list.appendChild(bubble(m, c)); });
-    list.scrollTop = list.scrollHeight;
-    var canPost = c.post.indexOf(role) > -1;
-    $("sendForm").style.display = canPost ? "flex" : "none";
-    if (!canPost) { var n = document.createElement("div"); n.className = "sys"; n.textContent = "Only teachers can post here."; list.appendChild(n); }
-  }
-  function openChannel(id) { current = id; unread[id] = 0; renderTabs(); renderMessages(); }
-
-  function receive(id, m) {
-    var key = id + m.id;
-    if (seen[key]) return;
-    seen[key] = true;
-    (store[id] = store[id] || []).push(m);
-    if (id === current) renderMessages(); else { unread[id] = (unread[id] || 0) + 1; renderTabs(); }
-  }
-  function connect() {
-    var ok = 0;
-    visible().forEach(function (c) {
-      var es = new EventSource(SERVER + topic(c.id) + "/sse?since=7d");
-      es.onopen = function () { $("dot").className = "dot on"; $("status").textContent = "Connected"; };
-      es.onerror = function () { $("dot").className = "dot"; $("status").textContent = "Reconnecting..."; };
-      es.onmessage = function (e) {
-        try {
-          var ev = JSON.parse(e.data);
-          if (ev.event !== "message") return;
-          var m = JSON.parse(ev.message);
-          // teachers-only channels: ignore posts that did not come from a teacher
-          if (c.post.indexOf(m.r) === -1) return;
-          if (m.id && m.n && m.t) receive(c.id, m);
-        } catch (err) {}
-      };
-      sources.push(es);
-    });
+  #messages {
+    padding: 12px;
   }
 
-  $("roleIn").addEventListener("change", function () {
-    $("staffIn").style.display = this.value === "teacher" ? "block" : "none";
-  });
-  $("joinForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var r = $("roleIn").value;
-    if (r === "teacher" && $("staffIn").value !== TEACHER_CODE) { $("err").textContent = "Wrong teacher code."; return; }
-    $("err").textContent = "";
-    me = $("nameIn").value.trim(); role = r;
-    school = $("schoolIn").value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (!me || !school) return;
-    store = {}; unread = {}; seen = {};
-    $("title").textContent = school + " · " + role;
-    show("app");
-    openChannel(visible()[0].id);
-    connect();
-  });
-  $("sendForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var text = $("textIn").value.trim();
-    if (!text) return;
-    var msg = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 8), n: me, r: role, t: text, ts: Date.now() };
-    $("textIn").value = "";
-    fetch(SERVER + topic(current), { method: "POST", body: JSON.stringify(msg) })
-      .catch(function () { alert("Message failed to send. Check your internet."); });
-  });
-  $("leave").addEventListener("click", function () {
-    sources.forEach(function (s) { s.close(); }); sources = [];
-    show("join");
-  });
-</script>
-</body>
-</html>
+  .msg {
+    max-width: 90%;
+  }
+
+  #
